@@ -52,7 +52,7 @@ func yesNo<T, E> (a: T, b: E) -> Void {
 
 yesNo(a: 1, b: "Yes")
 
-// MARK: 3_generics_throws
+// MARK: 4_generics_throws
 
 enum TypeCheckError: Error {
     case TypesAreNotEqual
