@@ -85,37 +85,30 @@ protocol BankApi {
     mutating func topUpPhoneBalance(userCardId: String, userCardPin: Int, phone: String, value: Float, paymentMethod: PaymentMethod) throws
 }
 
-struct someUser: UserData {
-    var userName = "Иван Иванов"
+class User: UserData {
+    var userName: String
     
-    var userCardId = "1234567890"
+    var userCardId: String
     
-    var userCardPin = 1234
+    var userCardPin: Int
     
-    var userPhone = "79998887766"
+    var userPhone: String
     
-    var userBankDeposit: Float = 350.10
+    var userBankDeposit: Float
     
-    var userPhoneBalance: Float = 100.00
+    var userPhoneBalance: Float
     
-    var userCardBalance: Float = 150.00
-
-}
-
-struct anotherUser: UserData {
-    var userName = "Семён Петрович"
+    var userCardBalance: Float
     
-    var userCardId = "0987654321"
-    
-    var userCardPin = 4321
-    
-    var userPhone = "81112223344"
-    
-    var userBankDeposit: Float = 560.10
-    
-    var userPhoneBalance: Float = 2.50
-    
-    var userCardBalance: Float = 135.00
+    init(userName: String, userCardId: String, userCardPin: Int, userPhone: String, userBankDeposit: Float, userPhoneBalance: Float, userCardBalance: Float) {
+        self.userName = userName
+        self.userCardId = userCardId
+        self.userCardPin = userCardPin
+        self.userPhone = userPhone
+        self.userBankDeposit = userBankDeposit
+        self.userPhoneBalance = userPhoneBalance
+        self.userCardBalance = userCardBalance
+    }
 
 }
 
@@ -125,8 +118,10 @@ class SomeBank: BankApi {
     
     // При создании заполняется актуалтная база клиентов
     init() {
-        self.users.append(someUser())
-        self.users.append(anotherUser())
+        self.users.append(
+            User(userName: "Иван Иванов", userCardId: "1234567890", userCardPin: 1234, userPhone: "79998887766", userBankDeposit: 350.50, userPhoneBalance: 110.20, userCardBalance: 125.75))
+        self.users.append(
+            User(userName: "Семён Петрович", userCardId: "0987654321", userCardPin: 4321, userPhone: "81112223344", userBankDeposit: 560.10, userPhoneBalance: 2.50, userCardBalance: 135.00))
         print("Банк начал свой рабочий день.")
     }
     
@@ -399,7 +394,7 @@ let bank = SomeBank()
 let cATM = ATM(someBank: bank)
 
 // Приходит клиент
-cATM.insertCard(cardId: someUser().userCardId, pin: someUser().userCardPin)
+cATM.insertCard(cardId: "1234567890", pin: 1234)
 cATM.doAction(actions: .showBalance, payment: .card)
 cATM.doAction(actions: .showBalance, payment: .deposit)
 cATM.doAction(actions: .showBalance, payment: .cash)
@@ -408,6 +403,6 @@ cATM.doAction(actions: .withdrawCash, payment: .card, parametr1: "100")
 cATM.exit()
 
 // Приходит другой клиент
-cATM.insertCard(cardId: anotherUser().userCardId, pin: anotherUser().userCardPin)
-cATM.doAction(actions: .topUpPhone, payment: .deposit, parametr1: "52.50", parametr2: someUser().userPhone)
+cATM.insertCard(cardId: "0987654321", pin: 4321)
+cATM.doAction(actions: .topUpPhone, payment: .deposit, parametr1: "52.50", parametr2: "79998887766")
 cATM.exit()
