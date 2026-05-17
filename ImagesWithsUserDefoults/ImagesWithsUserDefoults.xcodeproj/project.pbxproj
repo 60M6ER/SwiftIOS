@@ -6,15 +6,8 @@
 	objectVersion = 77;
 	objects = {
 
-/* Begin PBXBuildFile section */
-		94E6B8472FB9F4D2001585D1 /* ТЗ.txt in Resources */ = {isa = PBXBuildFile; fileRef = 94E6B8462FB9F4C7001585D1 /* ТЗ.txt */; };
-		94E6B84B2FB9F4EA001585D1 /* критерии.txt in Resources */ = {isa = PBXBuildFile; fileRef = 94E6B84A2FB9F4EA001585D1 /* критерии.txt */; };
-/* End PBXBuildFile section */
-
 /* Begin PBXFileReference section */
 		94E6B82E2FB9F487001585D1 /* ImagesWithsUserDefoults.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ImagesWithsUserDefoults.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		94E6B8462FB9F4C7001585D1 /* ТЗ.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "ТЗ.txt"; sourceTree = "<group>"; };
-		94E6B84A2FB9F4EA001585D1 /* критерии.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = "критерии.txt"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -52,8 +45,6 @@
 		94E6B8252FB9F487001585D1 = {
 			isa = PBXGroup;
 			children = (
-				94E6B84A2FB9F4EA001585D1 /* критерии.txt */,
-				94E6B8462FB9F4C7001585D1 /* ТЗ.txt */,
 				94E6B8302FB9F487001585D1 /* ImagesWithsUserDefoults */,
 				94E6B82F2FB9F487001585D1 /* Products */,
 			);
@@ -131,8 +122,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				94E6B84B2FB9F4EA001585D1 /* критерии.txt in Resources */,
-				94E6B8472FB9F4D2001585D1 /* ТЗ.txt in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
