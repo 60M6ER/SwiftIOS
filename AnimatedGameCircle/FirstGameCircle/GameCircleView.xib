@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<document type="com.apple.InterfaceBuilder3.CocoaTouch.XIB" version="3.0" toolsVersion="24128" targetRuntime="iOS.CocoaTouch" propertyAccessControl="none" useAutolayout="YES" useTraitCollections="YES" useSafeAreas="YES" colorMatched="YES">
+    <device id="retina6_12" orientation="portrait" appearance="light"/>
+    <dependencies>
+        <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="24063"/>
+        <capability name="Safe area layout guides" minToolsVersion="9.0"/>
+        <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
+    </dependencies>
+    <objects>
+        <placeholder placeholderIdentifier="IBFilesOwner" id="-1" userLabel="File's Owner" customClass="GameCircleView" customModule="FirstGameCircle" customModuleProvider="target">
+            <connections>
+                <outlet property="circleBodyView" destination="8bL-CI-74l" id="eB0-12-oz5"/>
+                <outlet property="contentView" destination="iN0-l3-epB" id="d9m-hJ-W6T"/>
+            </connections>
+        </placeholder>
+        <placeholder placeholderIdentifier="IBFirstResponder" id="-2" customClass="UIResponder"/>
+        <view contentMode="scaleToFill" id="iN0-l3-epB">
+            <rect key="frame" x="0.0" y="0.0" width="96" height="96"/>
+            <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
+            <subviews>
+                <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="8bL-CI-74l">
+                    <rect key="frame" x="0.0" y="0.0" width="96" height="96"/>
+                    <color key="backgroundColor" red="0.078431372549019607" green="0.47843137254901963" blue="0.98039215686274506" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+                </view>
+            </subviews>
+            <color key="backgroundColor" white="0.0" alpha="0.0" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
+            <constraints>
+                <constraint firstAttribute="trailing" secondItem="8bL-CI-74l" secondAttribute="trailing" id="5fI-vt-E8R"/>
+                <constraint firstItem="8bL-CI-74l" firstAttribute="leading" secondItem="iN0-l3-epB" secondAttribute="leading" id="QqF-T3-clP"/>
+                <constraint firstAttribute="bottom" secondItem="8bL-CI-74l" secondAttribute="bottom" id="heF-Eo-h6e"/>
+                <constraint firstItem="8bL-CI-74l" firstAttribute="top" secondItem="iN0-l3-epB" secondAttribute="top" id="pYO-AU-T4s"/>
+            </constraints>
+            <freeformSimulatedSizeMetrics key="simulatedDestinationMetrics"/>
+            <point key="canvasLocation" x="121" y="102"/>
+        </view>
+    </objects>
+</document>
