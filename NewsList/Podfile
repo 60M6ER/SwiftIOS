@@ -1,0 +1,9 @@
+platform :ios, '15.0'
+
+target 'NewsList' do
+  use_frameworks!
+
+  pod 'Moya'
+  pod 'ObjectMapper'
+  pod 'Kingfisher'
+end
