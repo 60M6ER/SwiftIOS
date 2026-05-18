@@ -16,6 +16,9 @@ final class ViewController: UIViewController {
     // Таблица показывает список новостей
     private let tableView = UITableView(frame: .zero, style: .plain)
 
+    // Системный refresh control запускает повторную загрузку первой страницы по жесту вниз.
+    private let refreshControl = UIRefreshControl()
+
     // Массив хранит полученные из API новости и служит источником данных для таблицы.
     private var articles: [NewsArticle] = []
 
@@ -30,6 +33,9 @@ final class ViewController: UIViewController {
 
     // Флаг показывает, идет ли сейчас догрузка следующей страницы.
     private var isLoadingNextPage = false
+
+    // Флаг показывает, что первая страница сейчас обновляется через pull-to-refresh.
+    private var isRefreshing = false
 
     // Флаг показывает, есть ли еще страницы, которые можно запросить у API.
     private var hasMorePages = true
@@ -81,6 +87,8 @@ final class ViewController: UIViewController {
         tableView.separatorInset = UIEdgeInsets(top: 0, left: 16, bottom: 0, right: 16)
         tableView.register(NewsTableViewCell.self, forCellReuseIdentifier: NewsTableViewCell.reuseIdentifier)
         tableView.register(LoadingTableViewCell.self, forCellReuseIdentifier: LoadingTableViewCell.reuseIdentifier)
+        refreshControl.addTarget(self, action: #selector(handleRefreshControl), for: .valueChanged)
+        tableView.refreshControl = refreshControl
     }
 
     // Лейбл пустого состояния сначала скрыт и становится видимым только при ошибке или пустом ответе.
@@ -125,6 +133,8 @@ final class ViewController: UIViewController {
         hasMorePages = !loadedArticles.isEmpty && loadedCount < response.totalResults
         isInitialLoading = false
         isLoadingNextPage = false
+        isRefreshing = false
+        refreshControl.endRefreshing()
         emptyStateLabel.isHidden = !articles.isEmpty
         emptyStateLabel.text = "Новости не найдены."
         tableView.reloadData()
@@ -143,6 +153,8 @@ final class ViewController: UIViewController {
         }
 
         isLoadingNextPage = false
+        isRefreshing = false
+        refreshControl.endRefreshing()
         tableView.reloadData()
     }
 
@@ -162,6 +174,18 @@ final class ViewController: UIViewController {
 
         isLoadingNextPage = true
         currentPage += 1
+        tableView.reloadData()
+        loadNews()
+    }
+
+    // Метод сбрасывает список и снова запрашивает первую страницу через pull-to-refresh.
+    @objc private func handleRefreshControl() {
+        articles = []
+        currentPage = 1
+        hasMorePages = true
+        isLoadingNextPage = false
+        isRefreshing = true
+        emptyStateLabel.isHidden = true
         tableView.reloadData()
         loadNews()
     }
@@ -240,6 +264,10 @@ extension ViewController: UITableViewDelegate {
         }
 
         guard !isInitialLoading else {
+            return
+        }
+
+        guard !isRefreshing else {
             return
         }
 
