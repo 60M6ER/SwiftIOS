@@ -1,0 +1,9 @@
+platform :ios, '15.0'
+
+target 'PicSearcher' do
+  use_frameworks!
+
+  pod 'Moya'
+  pod 'Kingfisher'
+  pod 'SwiftyJSON'
+end
