@@ -1,0 +1,8 @@
+API acscess key.
+eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI5NGVlMTk4ZWI5NmM3MmQzMjgwM2U5MjNhNDJkNDM3YyIsIm5iZiI6MTc3OTI2ODAzOC45MDIwMDAyLCJzdWIiOiI2YTBkNzljNjMzMTRiYWJlOTBmOGRlZGQiLCJzY29wZXMiOlsiYXBpX3JlYWQiXSwidmVyc2lvbiI6MX0.w7ShP9s3ovMkzjOKn-nzTgoEDYo7QJxCAd3umkzFat8
+
+API key
+94ee198eb96c72d32803e923a42d437c
+
+DOCs
+https://developer.themoviedb.org/docs/getting-started
