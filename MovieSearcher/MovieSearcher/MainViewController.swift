@@ -99,7 +99,10 @@ private extension MainViewController {
         )
         collectionView.dataSource = self
         collectionView.delegate = self
-        collectionView.register(FilmCollectionViewCell.self, forCellWithReuseIdentifier: FilmCollectionViewCell.reuseIdentifier)
+        collectionView.register(
+            UINib(nibName: FilmCollectionViewCell.nibName, bundle: nil),
+            forCellWithReuseIdentifier: FilmCollectionViewCell.reuseIdentifier
+        )
     }
 
     func configureLayout() {
@@ -185,7 +188,7 @@ extension MainViewController: UICollectionViewDelegateFlowLayout {
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         let film = filteredFilms[indexPath.item]
         let controller = DetailFilmViewController()
-        controller.title = film.title
+        controller.film = film
         navigationController?.pushViewController(controller, animated: true)
     }
 }
