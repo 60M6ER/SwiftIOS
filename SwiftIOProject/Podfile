@@ -1,0 +1,8 @@
+platform :ios, '16.0'
+
+target 'SwiftIOProject' do
+  use_frameworks!
+
+  pod 'Moya'
+  pod 'Kingfisher'
+end
