@@ -4,6 +4,7 @@
     <dependencies>
         <deployment identifier="iOS"/>
         <plugIn identifier="com.apple.InterfaceBuilder.IBCocoaTouchPlugin" version="24063"/>
+        <capability name="Image references" minToolsVersion="12.0"/>
         <capability name="System colors in document resources" minToolsVersion="11.0"/>
         <capability name="collection view cell content view" minToolsVersion="11.0"/>
         <capability name="documents saved in the Xcode 8 format" minToolsVersion="8.0"/>
@@ -81,10 +82,26 @@
                             <constraint firstAttribute="bottom" secondItem="Ckz-78-BAy" secondAttribute="bottom" id="WNz-Y3-js1"/>
                         </constraints>
                     </stackView>
+                    <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="cxR-GB-CHq">
+                        <rect key="frame" x="130" y="12" width="30" height="30"/>
+                        <gestureRecognizers/>
+                        <constraints>
+                            <constraint firstAttribute="height" constant="30" id="Ljt-H6-Zbt"/>
+                            <constraint firstAttribute="width" constant="30" id="pSV-cj-vAY"/>
+                        </constraints>
+                        <state key="normal" title="Button"/>
+                        <buttonConfiguration key="configuration" style="plain">
+                            <imageReference key="image" image="heart" catalog="system" symbolScale="large"/>
+                            <preferredSymbolConfiguration key="preferredSymbolConfigurationForImage"/>
+                            <color key="baseForegroundColor" red="1" green="0.0" blue="0.01666666667" alpha="1" colorSpace="calibratedRGB"/>
+                        </buttonConfiguration>
+                    </button>
                 </subviews>
                 <constraints>
+                    <constraint firstAttribute="trailing" secondItem="cxR-GB-CHq" secondAttribute="trailing" constant="12" id="625-wc-NhN"/>
                     <constraint firstAttribute="trailing" secondItem="f3I-fg-8kg" secondAttribute="trailing" id="BSS-OC-LH5"/>
                     <constraint firstItem="f3I-fg-8kg" firstAttribute="top" secondItem="QbO-uN-plA" secondAttribute="top" id="KX9-Ek-o88"/>
+                    <constraint firstItem="cxR-GB-CHq" firstAttribute="top" secondItem="QbO-uN-plA" secondAttribute="top" constant="12" id="kAl-yF-YgY"/>
                     <constraint firstAttribute="bottom" secondItem="f3I-fg-8kg" secondAttribute="bottom" id="p5A-dt-t9U"/>
                     <constraint firstItem="f3I-fg-8kg" firstAttribute="leading" secondItem="QbO-uN-plA" secondAttribute="leading" id="wgy-jx-ej4"/>
                 </constraints>
@@ -92,6 +109,7 @@
             <connections>
                 <outlet property="imageView" destination="Bhp-wX-0hy" id="oX1-v6-eZ9"/>
                 <outlet property="infoContainer" destination="Ckz-78-BAy" id="VMe-yd-rjl"/>
+                <outlet property="likeButton" destination="cxR-GB-CHq" id="bRW-TA-q3g"/>
                 <outlet property="ratingView" destination="jHj-cO-j3S" id="PXc-2d-bA4"/>
                 <outlet property="titleLable" destination="WQv-gF-Hzm" id="vja-wS-tq3"/>
                 <outlet property="yearLabel" destination="kCJ-h4-Ob8" id="PX6-bK-SIH"/>
@@ -100,6 +118,7 @@
         </collectionViewCell>
     </objects>
     <resources>
+        <image name="heart" catalog="system" width="128" height="107"/>
         <systemColor name="systemBackgroundColor">
             <color white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
         </systemColor>

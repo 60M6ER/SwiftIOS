@@ -8,8 +8,11 @@
 import UIKit
 
 final class DetailFilmViewController: UIViewController {
-    // Выбранный фильм приходит с главного экрана и заполняет весь detail.
-    var film: TestModel?
+    // Модель нужна для изменения liked-состояния.
+    private let model = Model()
+
+    // Фильм приходит с предыдущего экрана готовым объектом.
+    var film: Item?
 
     // Scroll view держит длинный экран целиком и дает спокойно прокручивать его.
     private let scrollView = UIScrollView()
@@ -22,6 +25,9 @@ final class DetailFilmViewController: UIViewController {
 
     // Заголовок показывает название фильма.
     private let titleLabel = UILabel()
+
+    // Сердце в detail показывает лайкнут фильм или нет.
+    private let likeButton = UIButton(type: .system)
 
     // Год выпуска идет отдельной строкой под названием.
     private let yearLabel = UILabel()
@@ -44,12 +50,19 @@ final class DetailFilmViewController: UIViewController {
     // Само описание фильма занимает нижнюю часть detail-экрана.
     private let overviewLabel = UILabel()
 
+    // Отдельный аниматор отвечает за красивое открытие fullscreen из картинки.
+    private let transition = RoundingTransition()
+
+    // Источник нужен, чтобы анимация стартовала именно из нажатого элемента.
+    private weak var transitionSourceView: UIView?
+
     // Загрузка контроллера собирает экран и сразу наполняет его данными фильма.
     override func viewDidLoad() {
         super.viewDidLoad()
         configureView()
         configureNavigationBar()
         configurePosterBlock()
+        configureLikeButton()
         configureStillsBlock()
         configureOverviewBlock()
         configureLayout()
@@ -113,6 +126,14 @@ private extension DetailFilmViewController {
         contentView.addSubview(ratingView)
     }
 
+    // Сердце в верхнем блоке меняет liked-состояние фильма.
+    func configureLikeButton() {
+        likeButton.translatesAutoresizingMaskIntoConstraints = false
+        likeButton.tintColor = .systemRed
+        likeButton.addTarget(self, action: #selector(toggleLikeState), for: .touchUpInside)
+        contentView.addSubview(likeButton)
+    }
+
     // Блок кадров готовит горизонтальную карусель превью.
     func configureStillsBlock() {
         stillsTitleLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -158,7 +179,12 @@ private extension DetailFilmViewController {
             posterImageView.widthAnchor.constraint(equalToConstant: 180),
             posterImageView.heightAnchor.constraint(equalToConstant: 290),
 
-            titleLabel.topAnchor.constraint(equalTo: posterImageView.topAnchor),
+            likeButton.topAnchor.constraint(equalTo: posterImageView.topAnchor),
+            likeButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            likeButton.widthAnchor.constraint(equalToConstant: 28),
+            likeButton.heightAnchor.constraint(equalToConstant: 28),
+
+            titleLabel.topAnchor.constraint(equalTo: likeButton.bottomAnchor, constant: 12),
             titleLabel.leadingAnchor.constraint(equalTo: posterImageView.trailingAnchor, constant: 20),
             titleLabel.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
 
@@ -211,8 +237,9 @@ private extension DetailFilmViewController {
 
         title = film.title
         titleLabel.text = film.title
-        yearLabel.text = film.year
-        ratingView.configure(rating: film.rating, fontSize: 20)
+        updateLikeButtonAppearance(isLiked: film.isLiked)
+        yearLabel.text = film.year.map(String.init) ?? "----"
+        ratingView.configure(rating: film.rating ?? 0, fontSize: 20)
         overviewLabel.text = film.overview
         posterImageView.image = film.posterImage
         applyGalleryImages(film.galleryImages)
@@ -242,13 +269,14 @@ private extension DetailFilmViewController {
 
     // Тап по постеру открывает одиночный fullscreen без нижнего счетчика.
     @objc func openPosterFullScreen() {
-        guard let image = film?.posterImage else {
+        guard let film else {
             return
         }
 
         let controller = FullPicViewController()
-        controller.image = image
-        presentFullScreen(controller)
+        controller.film = film
+        controller.showsGallery = false
+        presentFullScreen(controller, from: posterImageView)
     }
 
     // Тап по кадру открывает fullscreen уже со всей коллекцией изображений.
@@ -261,16 +289,58 @@ private extension DetailFilmViewController {
         }
 
         let controller = FullPicViewController()
-        controller.images = film.galleryImages
+        controller.film = film
+        controller.showsGallery = true
         controller.initialIndex = tappedImageView.tag
-        presentFullScreen(controller)
+        presentFullScreen(controller, from: tappedImageView)
     }
 
-    // Полноразмерный экран открывается модально, как и требуется по заданию юнита.
-    func presentFullScreen(_ controller: FullPicViewController) {
+    // Сердце меняет liked-состояние текущего фильма.
+    @objc func toggleLikeState() {
+        guard let film else {
+            return
+        }
+
+        let isLiked = model.toggleLikedState(forID: film.id)
+        self.film = model.item(withID: film.id)
+        updateLikeButtonAppearance(isLiked: isLiked)
+    }
+
+    // Полноразмерный экран открывается модально с кастомной анимацией от tapped view.
+    func presentFullScreen(_ controller: FullPicViewController, from sourceView: UIView) {
+        transitionSourceView = sourceView
         let navigationController = UINavigationController(rootViewController: controller)
-        navigationController.modalPresentationStyle = .fullScreen
-        navigationController.modalTransitionStyle = .coverVertical
+        navigationController.modalPresentationStyle = .custom
+        navigationController.transitioningDelegate = self
         present(navigationController, animated: true)
+    }
+
+    // Сердце показывает обычное или залитое состояние.
+    func updateLikeButtonAppearance(isLiked: Bool) {
+        let imageName = isLiked ? "heart.fill" : "heart"
+        likeButton.setImage(UIImage(systemName: imageName), for: .normal)
+    }
+}
+
+extension DetailFilmViewController: UIViewControllerTransitioningDelegate {
+    // Открытие fullscreen берет фрейм из нажатого элемента.
+    func animationController(
+        forPresented presented: UIViewController,
+        presenting: UIViewController,
+        source: UIViewController
+    ) -> UIViewControllerAnimatedTransitioning? {
+        guard let transitionSourceView else {
+            return nil
+        }
+
+        transition.transitionProfile = .show
+        transition.sourceFrame = transitionSourceView.superview?.convert(transitionSourceView.frame, to: nil) ?? transitionSourceView.frame
+        return transition
+    }
+
+    // Закрытие fullscreen уходит вниз и не спорит с нашим swipe to dismiss.
+    func animationController(forDismissed dismissed: UIViewController) -> UIViewControllerAnimatedTransitioning? {
+        transition.transitionProfile = .dismiss
+        return transition
     }
 }

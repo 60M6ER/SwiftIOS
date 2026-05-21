@@ -11,6 +11,19 @@ final class FilmCollectionViewCell: UICollectionViewCell {
     // Идентификатор нужен коллекции для регистрации и повторного использования ячейки.
     static let reuseIdentifier = "FilmCell"
 
+    // Модель нужна ячейке только для переключения лайка по id.
+    private let model = Model()
+
+    // Локальное состояние пока меняет только внешний вид сердца в ячейке.
+    private var isLiked = false
+
+    // Идентификатор помогает ячейке менять состояние нужного фильма.
+    private var itemID: Int?
+
+    // Событие наружу нужно, чтобы экран мог обновить свои массивы и фильтры.
+    var onLikeStateChanged: ((Int, Bool) -> Void)?
+
+    @IBOutlet weak var likeButton: UIButton!
     // Имя XIB нужно для подключения внешнего шаблона ячейки.
     static let nibName = "FilmCollectionViewCell"
 
@@ -35,6 +48,7 @@ final class FilmCollectionViewCell: UICollectionViewCell {
         configureView()
         configureImageView()
         configureLabels()
+        configureLikeButton()
     }
 
     // Перед повторным использованием ячейка убирает старые данные.
@@ -43,14 +57,21 @@ final class FilmCollectionViewCell: UICollectionViewCell {
         imageView.image = nil
         titleLable.text = nil
         yearLabel.text = nil
+        isLiked = false
+        itemID = nil
+        onLikeStateChanged = nil
+        updateLikeButtonAppearance()
     }
 
     // Метод переносит модель фильма в элементы карточки.
-    func configure(with model: TestModel) {
+    func configure(with model: Item) {
+        itemID = model.id
         imageView.image = model.posterImage
         titleLable.text = model.title
-        ratingView.configure(rating: model.rating, fontSize: 13)
-        yearLabel.text = model.year
+        ratingView.configure(rating: model.rating ?? 0, fontSize: 13)
+        yearLabel.text = model.year.map(String.init) ?? "----"
+        isLiked = model.isLiked
+        updateLikeButtonAppearance()
     }
 }
 
@@ -83,5 +104,29 @@ private extension FilmCollectionViewCell {
         yearLabel.textColor = .secondaryLabel
         yearLabel.numberOfLines = 1
         yearLabel.textAlignment = .right
+    }
+
+    // Сердце пока живет только внутри ячейки и меняет свое состояние по тапу.
+    func configureLikeButton() {
+        likeButton.tintColor = .systemRed
+        likeButton.addTarget(self, action: #selector(handleLikeTap), for: .touchUpInside)
+        updateLikeButtonAppearance()
+    }
+
+    // Кнопка показывает контурное или залитое сердце.
+    func updateLikeButtonAppearance() {
+        let imageName = isLiked ? "heart.fill" : "heart"
+        likeButton.setImage(UIImage(systemName: imageName), for: .normal)
+    }
+
+    // Тап пока только переключает иконку внутри ячейки.
+    @objc func handleLikeTap() {
+        guard let itemID else {
+            return
+        }
+
+        isLiked = model.toggleLikedState(forID: itemID)
+        updateLikeButtonAppearance()
+        onLikeStateChanged?(itemID, isLiked)
     }
 }
