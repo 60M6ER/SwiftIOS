@@ -8,11 +8,11 @@
 import UIKit
 
 final class FullPicViewController: UIViewController {
-    // Одна картинка используется для открытия постера без коллекции.
-    var image: UIImage?
+    // Фильм приходит с detail-экрана готовым объектом.
+    var film: Item?
 
-    // Коллекция картинок нужна для сценария со скроллингом кадров.
-    var images: [UIImage] = []
+    // Флаг выбирает сценарий одиночного постера или галереи.
+    var showsGallery = false
 
     // Стартовый индекс позволяет открыть fullscreen сразу на выбранном кадре.
     var initialIndex = 0
@@ -35,18 +35,28 @@ final class FullPicViewController: UIViewController {
     // Флаг запоминает, скрыты ли сейчас служебные панели.
     private var areChromeViewsHidden = false
 
+    // Первая анимация запускается только один раз.
+    private var hasShownInitialChromeAnimation = false
+
+    // Стартовая страница ставится только один раз.
+    private var hasAppliedInitialIndex = false
+
     // Общий массив нужен, чтобы одинаково работать и с одной картинкой, и с коллекцией.
     private var displayImages: [UIImage] {
-        if images.isEmpty {
-            return image.map { [$0] } ?? []
+        guard let film else {
+            return []
         }
 
-        return images
+        if showsGallery {
+            return film.galleryImages
+        }
+
+        return film.posterImage.map { [$0] } ?? []
     }
 
     // Нижний счетчик нужен только в сценарии со списком картинок.
     private var shouldShowCounter: Bool {
-        !images.isEmpty && displayImages.count > 1
+        showsGallery && displayImages.count > 1
     }
 
     // При загрузке экран собирает интерфейс и готовит стартовое состояние.
@@ -72,19 +82,22 @@ final class FullPicViewController: UIViewController {
         if let layout = collectionView.collectionViewLayout as? UICollectionViewFlowLayout {
             layout.itemSize = collectionView.bounds.size
         }
+
+        scrollToInitialImageIfNeeded()
     }
 
-    // После появления экран прокручивается к стартовой картинке, если открыта коллекция.
+    // Экран открывается на выбранной картинке.
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         scrollToInitialImageIfNeeded()
+        animateInitialChromeIfNeeded()
     }
 }
 
 private extension FullPicViewController {
     // Метод настраивает fullscreen-коллекцию, нижний счетчик и базовый фон экрана.
     func configureView() {
-        view.backgroundColor = .black
+        view.backgroundColor = .clear
 
         collectionView.translatesAutoresizingMaskIntoConstraints = false
         bottomOverlayView.translatesAutoresizingMaskIntoConstraints = false
@@ -102,7 +115,8 @@ private extension FullPicViewController {
         counterLabel.textColor = .white
         counterLabel.textAlignment = .center
 
-        bottomOverlayView.alpha = shouldShowCounter ? 1 : 0
+        bottomOverlayView.alpha = 0
+        bottomOverlayView.transform = CGAffineTransform(translationX: 0, y: 24)
 
         view.addSubview(collectionView)
         view.addSubview(bottomOverlayView)
@@ -133,6 +147,8 @@ private extension FullPicViewController {
         navigationController?.navigationBar.compactScrollEdgeAppearance = appearance
         navigationController?.navigationBar.tintColor = .white
         navigationController?.navigationBar.isTranslucent = true
+        navigationController?.navigationBar.alpha = 0
+        navigationController?.navigationBar.transform = CGAffineTransform(translationX: 0, y: -24)
     }
 
     // Констрейнты растягивают карусель на весь экран и прижимают счетчик вниз.
@@ -154,16 +170,63 @@ private extension FullPicViewController {
         ])
     }
 
-    // Метод один раз прокручивает карусель к картинке, по которой пришли на экран.
+    // Переход на стартовую страницу коллекции.
     func scrollToInitialImageIfNeeded() {
+        guard !hasAppliedInitialIndex else {
+            return
+        }
+
         guard shouldShowCounter, displayImages.indices.contains(initialIndex) else {
+            hasAppliedInitialIndex = true
             return
         }
 
         collectionView.layoutIfNeeded()
         collectionView.scrollToItem(at: IndexPath(item: initialIndex, section: 0), at: .centeredHorizontally, animated: false)
+        hasAppliedInitialIndex = true
         updateCounter(for: initialIndex)
     }
+
+    // Фон и панели появляются уже внутри fullscreen.
+    func animateInitialChromeIfNeeded() {
+        guard !hasShownInitialChromeAnimation else {
+            return
+        }
+
+        hasShownInitialChromeAnimation = true
+        areChromeViewsHidden = false
+
+        UIView.animate(withDuration: 0.36, delay: 0.02, options: [.curveEaseOut]) {
+            self.view.backgroundColor = .black
+            self.navigationController?.navigationBar.alpha = 1
+            self.navigationController?.navigationBar.transform = .identity
+            self.bottomOverlayView.alpha = self.shouldShowCounter ? 1 : 0
+            self.bottomOverlayView.transform = .identity
+        }
+    }
+
+    // Панели двигаются внутри уже открытого окна.
+    func setChromeHidden(_ isHidden: Bool, animated: Bool) {
+        areChromeViewsHidden = isHidden
+
+        let changes = {
+            self.navigationController?.navigationBar.alpha = isHidden ? 0 : 1
+            self.navigationController?.navigationBar.transform = isHidden
+                ? CGAffineTransform(translationX: 0, y: -24)
+                : .identity
+            self.bottomOverlayView.alpha = isHidden ? 0 : (self.shouldShowCounter ? 1 : 0)
+            self.bottomOverlayView.transform = isHidden
+                ? CGAffineTransform(translationX: 0, y: 24)
+                : .identity
+        }
+
+        if animated {
+            UIView.animate(withDuration: 0.28, delay: 0, options: [.curveEaseInOut], animations: changes)
+        } else {
+            changes()
+        }
+    }
+
 
     // Метод обновляет подпись вида "2 из 5" на нижней панели.
     func updateCounter(for index: Int) {
@@ -177,16 +240,7 @@ private extension FullPicViewController {
 
     // Одинарный тап скрывает и возвращает панели в классическом fullscreen-сценарии.
     func toggleChromeViews() {
-        areChromeViewsHidden.toggle()
-        navigationController?.setNavigationBarHidden(areChromeViewsHidden, animated: true)
-
-        guard shouldShowCounter else {
-            return
-        }
-
-        UIView.animate(withDuration: 0.25) {
-            self.bottomOverlayView.alpha = self.areChromeViewsHidden ? 0 : 1
-        }
+        setChromeHidden(!areChromeViewsHidden, animated: true)
     }
 
     // Кнопка закрытия завершает модальный просмотр и возвращает на экран деталей.
@@ -287,7 +341,7 @@ private final class ZoomableImageCollectionViewCell: UICollectionViewCell, UIScr
 
     // Общая настройка собирает scroll view, image view и жесты для картинки.
     private func configureView() {
-        contentView.backgroundColor = .black
+        contentView.backgroundColor = .clear
 
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         imageView.translatesAutoresizingMaskIntoConstraints = false
@@ -299,6 +353,7 @@ private final class ZoomableImageCollectionViewCell: UICollectionViewCell, UIScr
         scrollView.showsVerticalScrollIndicator = false
         scrollView.showsHorizontalScrollIndicator = false
         scrollView.isScrollEnabled = false
+        scrollView.backgroundColor = .clear
 
         imageView.contentMode = .scaleAspectFit
         imageView.clipsToBounds = true
