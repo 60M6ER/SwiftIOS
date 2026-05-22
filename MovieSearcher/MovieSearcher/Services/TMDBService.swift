@@ -37,6 +37,53 @@ final class TMDBService {
         )
     }
 
+    // Недавно вышедший фильм нужен для проверки endpoint latest.
+    func fetchLatestMovie(completion: @escaping (Result<Data, Error>) -> Void) {
+        request(
+            path: "/movie/latest",
+            queryItems: [
+                URLQueryItem(name: "language", value: "en-US")
+            ],
+            completion: completion
+        )
+    }
+
+    // Фильмы в прокате нужны для категории now playing.
+    func fetchNowPlayingMovies(page: Int = 1, completion: @escaping (Result<Data, Error>) -> Void) {
+        request(
+            path: "/movie/now_playing",
+            queryItems: [
+                URLQueryItem(name: "language", value: "en-US"),
+                URLQueryItem(name: "page", value: String(page))
+            ],
+            completion: completion
+        )
+    }
+
+    // Высокорейтинговые фильмы нужны для категории top rated.
+    func fetchTopRatedMovies(page: Int = 1, completion: @escaping (Result<Data, Error>) -> Void) {
+        request(
+            path: "/movie/top_rated",
+            queryItems: [
+                URLQueryItem(name: "language", value: "en-US"),
+                URLQueryItem(name: "page", value: String(page))
+            ],
+            completion: completion
+        )
+    }
+
+    // Скоро выходящие фильмы нужны для категории upcoming.
+    func fetchUpcomingMovies(page: Int = 1, completion: @escaping (Result<Data, Error>) -> Void) {
+        request(
+            path: "/movie/upcoming",
+            queryItems: [
+                URLQueryItem(name: "language", value: "en-US"),
+                URLQueryItem(name: "page", value: String(page))
+            ],
+            completion: completion
+        )
+    }
+
     // Поиск по названию нужен для search controller.
     func searchMovies(query: String, page: Int = 1, completion: @escaping (Result<Data, Error>) -> Void) {
         request(
@@ -87,6 +134,25 @@ final class TMDBService {
 
         fetchMovieImages(id: 550) { result in
             self.printDebugResult(title: "IMAGES", result: result)
+        }
+    }
+
+    // Временная проверка нужна именно под задание с четырьмя категориями фильмов.
+    func debugRunHomeworkRequests() {
+        fetchLatestMovie { result in
+            self.printDebugResult(title: "LATEST", result: result)
+        }
+
+        fetchNowPlayingMovies(page: 1) { result in
+            self.printDebugResult(title: "NOW_PLAYING", result: result)
+        }
+
+        fetchTopRatedMovies(page: 1) { result in
+            self.printDebugResult(title: "TOP_RATED", result: result)
+        }
+
+        fetchUpcomingMovies(page: 1) { result in
+            self.printDebugResult(title: "UPCOMING", result: result)
         }
     }
 }

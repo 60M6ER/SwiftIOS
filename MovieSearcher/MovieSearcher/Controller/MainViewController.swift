@@ -74,6 +74,7 @@ final class MainViewController: UIViewController {
         model.prepareRealmData()
         model.printRealmFilePath()
         tmdbService.debugRunAllRequests()
+        tmdbService.debugRunHomeworkRequests()
         model.sortFilms()
         likedTestArray = model.showLikedFilms()
         title = "Фильмы"
