@@ -41,6 +41,9 @@ final class MainViewController: UIViewController {
     // Общая модель держит рабочий массив главного списка.
     private let model = Model()
 
+    // Сервис пока нужен для проверки TMDB-запросов в консоли.
+    private let tmdbService = TMDBService.shared
+
     // Флаг переключает обычный список и показ только лайкнутых фильмов.
     private var isShowingLikedOnly = false
 
@@ -61,14 +64,16 @@ final class MainViewController: UIViewController {
     )
 
     // Источник данных для коллекции зависит от активного фильтра.
-    private var displayedItems: [Item] {
+    private var displayedItems: [FilmObject] {
         isShowingLikedOnly ? likedTestArray : newTestArray
     }
 
     override func viewDidLoad() {
         super.viewDidLoad()
         sortAscending = true
-        newTestArray = testArray
+        model.prepareRealmData()
+        model.printRealmFilePath()
+        tmdbService.debugRunAllRequests()
         model.sortFilms()
         likedTestArray = model.showLikedFilms()
         title = "Фильмы"
@@ -165,7 +170,9 @@ private extension MainViewController {
     func applySearch(text: String) {
         model.search(with: text)
         likedTestArray = model.showLikedFilms()
-        collectionView.reloadData()
+        DispatchQueue.main.async {
+            self.collectionView.reloadData()
+        }
         updateEmptyState()
     }
 
@@ -180,7 +187,9 @@ private extension MainViewController {
         }
 
         likedTestArray = model.showLikedFilms()
-        collectionView.reloadData()
+        DispatchQueue.main.async {
+            self.collectionView.reloadData()
+        }
         updateEmptyState()
     }
 
@@ -210,7 +219,9 @@ private extension MainViewController {
         isShowingLikedOnly.toggle()
         likedTestArray = model.showLikedFilms()
         updateLikedFilterButtonAppearance()
-        collectionView.reloadData()
+        DispatchQueue.main.async {
+            self.collectionView.reloadData()
+        }
         updateEmptyState()
     }
 

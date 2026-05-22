@@ -12,7 +12,7 @@ final class DetailFilmViewController: UIViewController {
     private let model = Model()
 
     // Фильм приходит с предыдущего экрана готовым объектом.
-    var film: Item?
+    var film: FilmObject?
 
     // Scroll view держит длинный экран целиком и дает спокойно прокручивать его.
     private let scrollView = UIScrollView()
@@ -66,7 +66,9 @@ final class DetailFilmViewController: UIViewController {
         configureStillsBlock()
         configureOverviewBlock()
         configureLayout()
-        applyFilm()
+        DispatchQueue.main.async {
+            self.applyFilm()
+        }
     }
 }
 
@@ -238,8 +240,8 @@ private extension DetailFilmViewController {
         title = film.title
         titleLabel.text = film.title
         updateLikeButtonAppearance(isLiked: film.isLiked)
-        yearLabel.text = film.year.map(String.init) ?? "----"
-        ratingView.configure(rating: film.rating ?? 0, fontSize: 20)
+        yearLabel.text = String(film.year)
+        ratingView.configure(rating: film.rating, fontSize: 20)
         overviewLabel.text = film.overview
         posterImageView.image = film.posterImage
         applyGalleryImages(film.galleryImages)

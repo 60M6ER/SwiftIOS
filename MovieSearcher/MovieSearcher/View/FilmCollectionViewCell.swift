@@ -64,12 +64,12 @@ final class FilmCollectionViewCell: UICollectionViewCell {
     }
 
     // Метод переносит модель фильма в элементы карточки.
-    func configure(with model: Item) {
+    func configure(with model: FilmObject) {
         itemID = model.id
         imageView.image = model.posterImage
         titleLable.text = model.title
-        ratingView.configure(rating: model.rating ?? 0, fontSize: 13)
-        yearLabel.text = model.year.map(String.init) ?? "----"
+        ratingView.configure(rating: model.rating, fontSize: 13)
+        yearLabel.text = String(model.year)
         isLiked = model.isLiked
         updateLikeButtonAppearance()
     }
