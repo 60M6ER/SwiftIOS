@@ -9,7 +9,7 @@ import UIKit
 
 final class FullPicViewController: UIViewController {
     // Фильм приходит с detail-экрана готовым объектом.
-    var film: Item?
+    var film: FilmObject?
 
     // Флаг выбирает сценарий одиночного постера или галереи.
     var showsGallery = false
