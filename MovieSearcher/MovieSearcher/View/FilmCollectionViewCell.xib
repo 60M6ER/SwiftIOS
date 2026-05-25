@@ -24,9 +24,6 @@
                         <subviews>
                             <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFill" horizontalHuggingPriority="251" verticalHuggingPriority="251" translatesAutoresizingMaskIntoConstraints="NO" id="Bhp-wX-0hy">
                                 <rect key="frame" x="0.0" y="0.0" width="172" height="208"/>
-                                <constraints>
-                                    <constraint firstAttribute="height" constant="208" id="Zj4-gJ-bPP"/>
-                                </constraints>
                             </imageView>
                             <view contentMode="scaleToFill" translatesAutoresizingMaskIntoConstraints="NO" id="Ckz-78-BAy">
                                 <rect key="frame" x="0.0" y="208" width="172" height="80"/>
@@ -61,13 +58,13 @@
                                 <color key="backgroundColor" systemColor="systemBackgroundColor"/>
                                 <constraints>
                                     <constraint firstAttribute="trailing" secondItem="kCJ-h4-Ob8" secondAttribute="trailing" constant="12" id="DTz-2w-510"/>
-                                    <constraint firstAttribute="height" constant="80" id="HZR-Bl-l1X"/>
                                     <constraint firstItem="WQv-gF-Hzm" firstAttribute="leading" secondItem="Ckz-78-BAy" secondAttribute="leading" constant="12" id="NT4-Lt-1Uw"/>
                                     <constraint firstItem="WQv-gF-Hzm" firstAttribute="top" secondItem="Ckz-78-BAy" secondAttribute="top" constant="4" id="Nal-6B-S9n"/>
                                     <constraint firstAttribute="bottom" secondItem="kCJ-h4-Ob8" secondAttribute="bottom" constant="12" id="PPS-eY-i5D"/>
                                     <constraint firstItem="WQv-gF-Hzm" firstAttribute="bottom" relation="lessThanOrEqual" secondItem="kCJ-h4-Ob8" secondAttribute="bottom" constant="-6" id="R4F-At-ygd"/>
                                     <constraint firstAttribute="bottom" secondItem="jHj-cO-j3S" secondAttribute="bottom" constant="12" id="Rzx-xh-b3f"/>
                                     <constraint firstAttribute="trailing" secondItem="WQv-gF-Hzm" secondAttribute="trailing" constant="12" id="Yjg-bj-8ow"/>
+                                    <constraint firstAttribute="height" constant="80" id="ayt-6K-ln6"/>
                                     <constraint firstItem="jHj-cO-j3S" firstAttribute="leading" secondItem="Ckz-78-BAy" secondAttribute="leading" constant="12" id="tSI-2U-DOk"/>
                                 </constraints>
                             </view>

@@ -5,39 +5,64 @@
 //  Created by OpenAI on 22.05.2026.
 //
 
-import UIKit
+import Foundation
 import RealmSwift
 
-// Основной массив теперь собирается из Realm и питает главный список.
-var testArray: [FilmObject] = []
-
-// Этот массив нужен для сортировки и поиска на главном экране.
-var newTestArray: [FilmObject] = []
-
-// Отдельный массив собирает понравившиеся фильмы.
-var likedTestArray: [FilmObject] = []
-
-// Флаг управляет направлением сортировки.
+// Флаг управляет направлением сортировки на главном экране.
 var sortAscending = true
 
 final class Model {
-    // Экземпляр Realm держит доступ к локальной базе приложения.
-    private let realm = try! Realm()
-
-    // Основной Realm-список хранит фильмы в базе.
-    private var filmObjects: Results<FilmObject>?
-
-    init() {}
-
-    // Метод готовит базу, добавляет тестовые фильмы и читает их в рабочие массивы.
-    func prepareRealmData() {
-        seedRealmIfNeeded()
-        readRealmData()
-        showLikedFilms()
+    private enum DataSource {
+        case popular
+        case favorites
+        case searchPopular
+        case searchFavorites
     }
+
+    // Сервис загружает страницы TMDB и передает модели уже декодированные ответы.
+    private let tmdbService = TMDBService.shared
+
+    // Realm-результат нужен как источник локальной пагинации избранного.
+    private var favoriteResults: Results<FilmObject>?
+
+    // Текущий источник определяет, откуда брать следующую страницу.
+    private var currentSource: DataSource = .popular
+
+    // Единственный рабочий массив уже готов для collection view.
+    private(set) var displayedFilms: [FilmObject] = []
+
+    // Последний поисковый текст нужен, чтобы не терять фильтр после обновления массива.
+    private var currentSearchText = ""
+
+    // Номер последней загруженной страницы нужен для догрузки следующих результатов.
+    private(set) var currentPage = 0
+
+    // Общее число страниц приходит из TMDB и ограничивает пагинацию.
+    private(set) var totalPages = 0
+
+    // Общее количество результатов полезно для отладки и будущего UI.
+    private(set) var totalResults = 0
+
+    // Флаг защищает от параллельной догрузки одной и той же страницы.
+    private(set) var isLoadingPage = false
+
+    // Признак позволяет экрану понять, можно ли просить следующую страницу.
+    var canLoadNextPage: Bool {
+        !isLoadingPage && currentPage < totalPages
+    }
+
+    // Сортировка доступна только для локального списка избранного.
+    var isSortingAvailable: Bool {
+        currentSource == .favorites || currentSource == .searchFavorites
+    }
+
+    // Размер страницы для локального избранного держим фиксированным и простым.
+    private let favoritesPageSize = 20
 
     // Адрес realm-файла удобно смотреть в консоли при отладке.
     func printRealmFilePath() {
+        let realm = makeRealm()
+
         guard let fileURL = realm.configuration.fileURL else {
             return
         }
@@ -45,110 +70,326 @@ final class Model {
         print(fileURL.path)
     }
 
-    // Тестовые фильмы записываются в базу только один раз.
-    func seedRealmIfNeeded() {
-        guard realm.objects(FilmObject.self).isEmpty else {
+    // Метод оставлен как точка входа для инициализации локального состояния.
+    func prepareRealmData() {
+        applyFilters()
+    }
+
+    // Главный экран возвращается к popular и сбрасывает его пагинацию на первую страницу.
+    func showPopular(completion: @escaping () -> Void) {
+        currentSource = .popular
+        currentSearchText = ""
+        loadPopularMovies(page: 1, completion: completion)
+    }
+
+    // Фильтр избранного переключает источник на локальную базу и грузит первую страницу.
+    func showFavorites(completion: @escaping () -> Void) {
+        currentSource = .favorites
+        currentSearchText = ""
+        refreshFavorites()
+        completion()
+    }
+
+    // Поиск становится отдельным источником и выбирает TMDB или Realm по активному режиму.
+    func search(with text: String, inFavorites: Bool, completion: @escaping () -> Void) {
+        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        currentSearchText = trimmedText
+
+        guard !trimmedText.isEmpty else {
+            if inFavorites {
+                showFavorites(completion: completion)
+            } else {
+                showPopular(completion: completion)
+            }
             return
         }
 
-        let films = makeTestArray()
+        if inFavorites {
+            currentSource = .searchFavorites
+            refreshFavorites()
+            completion()
+        } else {
+            currentSource = .searchPopular
+            loadSearchPopularMovies(query: trimmedText, page: 1, completion: completion)
+        }
+    }
 
-        do {
-            try realm.write {
-                realm.add(films, update: .modified)
+    // Главный экран берет популярные фильмы из модели, а не из Realm.
+    func loadPopularMovies(page: Int = 1, completion: @escaping () -> Void) {
+        guard !isLoadingPage else {
+            completion()
+            return
+        }
+
+        if page > 1 {
+            guard canLoadNextPage else {
+                completion()
+                return
             }
-        } catch {
-            print("Realm seed error: \(error.localizedDescription)")
+        }
+
+        isLoadingPage = true
+
+        tmdbService.fetchPopularMovieList(page: page) { [weak self] result in
+            guard let self else {
+                return
+            }
+
+            DispatchQueue.main.async {
+                switch result {
+                case let .success(moviePage):
+                    self.currentPage = moviePage.page
+                    self.totalPages = moviePage.totalPages
+                    self.totalResults = moviePage.totalResults
+
+                    self.mergeLoadedFilms(moviePage.films, replacingCurrentPage: page == 1)
+
+                    self.applyLikedStateFromRealm()
+                    self.applyFilters()
+                    self.isLoadingPage = false
+                    completion()
+                case let .failure(error):
+                    print("TMDB popular loading error: \(error.localizedDescription)")
+                    self.isLoadingPage = false
+                    completion()
+                }
+            }
         }
     }
 
-    // Метод выгружает фильмы из Realm в рабочий массив приложения.
-    func readRealmData() {
-        filmObjects = realm.objects(FilmObject.self)
-        testArray = Array(filmObjects ?? realm.objects(FilmObject.self))
-    }
+    // Следующая страница догружается только если TMDB еще не исчерпан.
+    func loadNextPage(completion: @escaping (_ didLoadNewPage: Bool) -> Void) {
+        switch currentSource {
+        case .popular:
+            guard canLoadNextPage else {
+                completion(false)
+                return
+            }
 
-    // Метод возвращает фильм по id из общего массива.
-    func item(withID id: Int) -> FilmObject? {
-        realm.object(ofType: FilmObject.self, forPrimaryKey: id)
-    }
+            loadPopularMovies(page: currentPage + 1) {
+                completion(true)
+            }
+        case .searchPopular:
+            guard canLoadNextPage, !currentSearchText.isEmpty else {
+                completion(false)
+                return
+            }
 
-    // Метод собирает liked-массив заново.
-    @discardableResult
-    func showLikedFilms() -> [FilmObject] {
-        likedTestArray = Array(realm.objects(FilmObject.self).filter("isLiked == true"))
-        return likedTestArray
-    }
+            loadSearchPopularMovies(query: currentSearchText, page: currentPage + 1) {
+                completion(true)
+            }
+        case .favorites:
+            guard canLoadNextPage else {
+                completion(false)
+                return
+            }
 
-    // Метод переключает лайк у фильма по его id.
-    @discardableResult
-    func toggleLikedState(forID id: Int) -> Bool {
-        guard let item = item(withID: id) else {
-            return false
+            loadNextFavoritesPage()
+            completion(true)
+        case .searchFavorites:
+            guard canLoadNextPage else {
+                completion(false)
+                return
+            }
+
+            loadNextFavoritesPage()
+            completion(true)
         }
+    }
+
+    // Переключение лайка меняет объект в памяти и синхронизирует локальную базу.
+    @discardableResult
+    func toggleLikedState(for film: FilmObject) -> Bool {
+        let newState = !film.isLiked
+        film.isLiked = newState
+        updateStoredLike(for: film, isLiked: newState)
+
+        if (currentSource == .favorites || currentSource == .searchFavorites) && !newState {
+            refreshFavorites()
+        }
+
+        applyFilters()
+        return newState
+    }
+
+    // Сортировка просто пересобирает уже загруженный in-memory список.
+    func sortFilms() {
+        applyFilters()
+    }
+}
+
+private extension Model {
+    // Realm создается на том потоке, на котором он используется.
+    func makeRealm() -> Realm {
+        try! Realm()
+    }
+
+    // Следующие страницы дописываются по id без дублирования уже загруженных фильмов.
+    func mergeLoadedFilms(_ newFilms: [FilmObject], replacingCurrentPage: Bool) {
+        if replacingCurrentPage {
+            displayedFilms = newFilms
+            return
+        }
+
+        let existingIDs = Set(displayedFilms.map(\.id))
+        let uniqueFilms = newFilms.filter { !existingIDs.contains($0.id) }
+        displayedFilms.append(contentsOf: uniqueFilms)
+    }
+
+    // Поиск в TMDB повторяет логику popular, но использует отдельный источник и query.
+    func loadSearchPopularMovies(query: String, page: Int = 1, completion: @escaping () -> Void) {
+        guard !isLoadingPage else {
+            completion()
+            return
+        }
+
+        if page > 1 {
+            guard canLoadNextPage else {
+                completion()
+                return
+            }
+        }
+
+        isLoadingPage = true
+
+        tmdbService.fetchSearchMovieList(query: query, page: page) { [weak self] result in
+            guard let self else {
+                return
+            }
+
+            DispatchQueue.main.async {
+                switch result {
+                case let .success(moviePage):
+                    self.currentPage = moviePage.page
+                    self.totalPages = moviePage.totalPages
+                    self.totalResults = moviePage.totalResults
+
+                    self.mergeLoadedFilms(moviePage.films, replacingCurrentPage: page == 1)
+
+                    self.applyLikedStateFromRealm()
+                    self.applyFilters()
+                    self.isLoadingPage = false
+                    completion()
+                case let .failure(error):
+                    print("TMDB search loading error: \(error.localizedDescription)")
+                    self.isLoadingPage = false
+                    completion()
+                }
+            }
+        }
+    }
+
+    // Realm подготавливает запрос liked-фильмов как источник локальной пагинации.
+    func prepareFavoritePagination() {
+        let realm = makeRealm()
+        let likedFilms = realm.objects(FilmObject.self)
+            .where { $0.isLiked == true }
+        var results = likedFilms
+
+        if !currentSearchText.isEmpty {
+            let searchText = currentSearchText.lowercased()
+            results = results.where {
+                $0.searchTitle.contains(searchText)
+            }
+        }
+
+        results = results.sorted(byKeyPath: "rating", ascending: sortAscending)
+
+        favoriteResults = results
+        totalResults = results.count
+        totalPages = totalResults == 0 ? 0 : Int(ceil(Double(totalResults) / Double(favoritesPageSize)))
+        currentPage = 0
+
+        displayedFilms.removeAll()
+    }
+
+    // Следующая локальная страница берется из Realm по границам индексов.
+    func loadNextFavoritesPage() {
+        guard let favoriteResults, currentPage < totalPages else {
+            return
+        }
+
+        let startIndex = currentPage * favoritesPageSize
+        let endIndex = min(startIndex + favoritesPageSize, totalResults)
+        let pageFilms = favoriteResults[startIndex..<endIndex].map(cloneFilm)
+
+        displayedFilms.append(contentsOf: pageFilms)
+        currentPage += 1
+        applyFilters()
+    }
+
+    // Избранное можно заново открыть с первой страницы без восстановления прошлой отрисовки.
+    func refreshFavorites() {
+        prepareFavoritePagination()
+
+        guard totalPages > 0 else {
+            applyFilters()
+            return
+        }
+
+        loadNextFavoritesPage()
+    }
+
+    // Realm хранит локальный кэш фильмов, поэтому лайк читается из сохраненного объекта.
+    func applyLikedStateFromRealm() {
+        let realm = makeRealm()
+        let storedFilms = realm.objects(FilmObject.self)
+        let storedFilmsByID = Dictionary(uniqueKeysWithValues: storedFilms.map { ($0.id, $0) })
+
+        displayedFilms.forEach { film in
+            film.isLiked = storedFilmsByID[film.id]?.isLiked ?? false
+        }
+    }
+
+    // Локальная база хранит фильм для офлайна и обновляет его текущее liked-состояние.
+    func updateStoredLike(for film: FilmObject, isLiked: Bool) {
+        let realm = makeRealm()
 
         do {
             try realm.write {
-                item.isLiked.toggle()
+                let storedFilm = FilmObject(
+                    id: film.id,
+                    title: film.title,
+                    originalTitle: film.originalTitle,
+                    year: film.year,
+                    rating: film.rating,
+                    posterImageName: film.posterImageName,
+                    overview: film.overview,
+                    galleryImageNames: Array(film.galleryImageNames),
+                    isLiked: isLiked
+                )
+                realm.add(storedFilm, update: .modified)
             }
         } catch {
             print("Realm write error: \(error.localizedDescription)")
         }
-
-        readRealmData()
-        showLikedFilms()
-        return item.isLiked
     }
 
-    // Сортировка обновляет рабочий массив для списка.
-    func sortFilms() {
-        readRealmData()
+    // Копия нужна, чтобы список избранного не держал managed Realm-объекты напрямую.
+    func cloneFilm(_ film: FilmObject) -> FilmObject {
+        FilmObject(
+            id: film.id,
+            title: film.title,
+            originalTitle: film.originalTitle,
+            year: film.year,
+            rating: film.rating,
+            posterImageName: film.posterImageName,
+            overview: film.overview,
+            galleryImageNames: Array(film.galleryImageNames),
+            isLiked: film.isLiked
+        )
+    }
 
-        guard let filmObjects else {
-            newTestArray = []
-            return
+    // Для избранного сортировка работает поверх уже загруженной локальной страницы.
+    func applyFilters() {
+        if isSortingAvailable {
+            displayedFilms = displayedFilms.sorted { leftFilm, rightFilm in
+                if sortAscending {
+                    return leftFilm.rating < rightFilm.rating
+                }
+
+                return leftFilm.rating > rightFilm.rating
+            }
         }
-
-        let sortedResults = filmObjects.sorted(byKeyPath: "rating", ascending: sortAscending)
-        newTestArray = Array(sortedResults)
     }
-
-    // Поиск обновляет рабочий массив по названию фильма.
-    func search(with text: String) {
-        let trimmedText = text.trimmingCharacters(in: .whitespacesAndNewlines)
-
-        guard !trimmedText.isEmpty else {
-            sortFilms()
-            return
-        }
-
-        let searchResults = realm.objects(FilmObject.self)
-            .filter("title CONTAINS[c] %@", trimmedText)
-            .sorted(byKeyPath: "rating", ascending: sortAscending)
-
-        newTestArray = Array(searchResults)
-    }
-}
-
-// Тестовый массив пока подменяет реальные данные из TMDB.
-private func makeTestArray() -> [FilmObject] {
-    let gallery = ["image1", "image2", "image3", "image4", "image5"]
-
-    return [
-        FilmObject(id: 0, title: "Тестовый фильм 1", year: 2021, rating: 5.6, posterImageName: "image1", overview: "Небольшое тестовое описание фильма для экрана деталей. Здесь позже появится текст из реального ответа TMDB, поэтому блок уже рассчитан на длинные абзацы.", galleryImageNames: gallery, isLiked: false),
-        FilmObject(id: 1, title: "Тестовый фильм 2", year: 2020, rating: 6.1, posterImageName: "image2", overview: "Это демонстрационная карточка фильма. На этом этапе мы проверяем композицию экрана, прокрутку, работу жестов и полноэкранный просмотр изображений.", galleryImageNames: gallery, isLiked: true),
-        FilmObject(id: 2, title: "Тестовый фильм 3", year: 2019, rating: 7.5, posterImageName: "image3", overview: "Описание пока тестовое, но уже похоже на реальный сценарий использования. Текст должен спокойно переноситься на несколько строк и не ломать layout экрана.", galleryImageNames: gallery, isLiked: false),
-        FilmObject(id: 3, title: "Тестовый фильм 4", year: 2018, rating: 8.3, posterImageName: "image4", overview: "В будущем этот экран будет получать постер, рейтинг, год, галерею и подробное описание из сети. Сейчас нам важнее заложить устойчивую структуру и навигацию.", galleryImageNames: gallery, isLiked: true),
-        FilmObject(id: 4, title: "Очень странные дела в примитивном мире друзей", year: 2022, rating: 5.9, posterImageName: "image5", overview: "Длинное название здесь нужно как дополнительный тест: блок с заголовком и правой колонкой не должен разваливаться даже на заметно более длинных строках.", galleryImageNames: gallery, isLiked: false),
-        FilmObject(id: 5, title: "Тестовый фильм 6", year: 2023, rating: 6.8, posterImageName: "image6", overview: "Кадры на этом шаге тестовые и одинаковые для всех фильмов. Это позволяет сосредоточиться на взаимодействии экранов до подключения реальных ресурсов.", galleryImageNames: gallery, isLiked: false),
-        FilmObject(id: 6, title: "Тестовый фильм 7", year: 2021, rating: 7.4, posterImageName: "image7", overview: "Полноэкранный просмотр строится с прицелом на дальнейшую подгрузку качественных изображений. Превью и оригиналы позже можно будет разделить без переделки архитектуры.", galleryImageNames: gallery, isLiked: true),
-        FilmObject(id: 7, title: "Тестовый фильм 8", year: 2020, rating: 8.0, posterImageName: "image8", overview: "Для детального экрана важны не только данные, но и удобная навигация. Поэтому здесь заранее продуманы возврат, fullscreen-режим и счётчик картинок.", galleryImageNames: gallery, isLiked: false),
-        FilmObject(id: 8, title: "Тестовый фильм 9", year: 2019, rating: 5.4, posterImageName: "image9", overview: "Светлая и тёмная темы тоже должны работать аккуратно. Этот блок описания нужен в том числе как тестовый объёмный контент для прокрутки.", galleryImageNames: gallery, isLiked: true),
-        FilmObject(id: 9, title: "Тестовый фильм 10", year: 2022, rating: 8.1, posterImageName: "image10", overview: "Мы намеренно закладываем сюда многократное переиспользование компонентов: карточка фильма, рейтинг, превью-картинки и экран полного просмотра.", galleryImageNames: gallery, isLiked: false),
-        FilmObject(id: 10, title: "Тестовый фильм 11", year: 2023, rating: 7.9, posterImageName: "image11", overview: "Текущий шаг про экран деталей. Следующие итерации уже можно будет посвящать сети, кэшу изображений и реальному контенту без переписывания UI с нуля.", galleryImageNames: gallery, isLiked: false),
-        FilmObject(id: 11, title: "Тестовый фильм 12", year: 2021, rating: 6.3, posterImageName: "image12", overview: "Даже тестовый экран должен быть собран как настоящий: с учётом реальных ограничений по текстам, пропорциям постера и поведения полноэкранной галереи.", galleryImageNames: gallery, isLiked: true),
-        FilmObject(id: 12, title: "Тестовый фильм 13", year: 2020, rating: 7.2, posterImageName: "image13", overview: "Пока описание единообразное по стилю, но позже можно будет легко подменить его данными из API и посмотреть, как экран ведёт себя на разных фильмах.", galleryImageNames: gallery, isLiked: false),
-        FilmObject(id: 13, title: "Тестовый фильм 14", year: 2018, rating: 5.8, posterImageName: "image14", overview: "Главная цель этой стадии — чтобы весь экран ощущался цельным: верхний блок, карусель кадров, описание и fullscreen-режим работали как одна связная история.", galleryImageNames: gallery, isLiked: true),
-        FilmObject(id: 14, title: "Тестовый фильм 15", year: 2024, rating: 8.6, posterImageName: "image15", overview: "После подключения реального TMDB здесь можно будет хранить уже не имена локальных изображений, а URL превью и URL полноразмерных картинок без изменения пользовательского сценария.", galleryImageNames: gallery, isLiked: false)
-    ]
 }

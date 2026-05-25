@@ -4,4 +4,8 @@ target 'MovieSearcher' do
   use_frameworks!
 
   pod 'RealmSwift'
+  
+  target 'MovieSearcherTests' do
+    inherit! :search_paths
+  end
 end

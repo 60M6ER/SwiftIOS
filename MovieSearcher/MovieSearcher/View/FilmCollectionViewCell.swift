@@ -14,11 +14,14 @@ final class FilmCollectionViewCell: UICollectionViewCell {
     // Модель нужна ячейке только для переключения лайка по id.
     private let model = Model()
 
+    // Сервис нужен для загрузки постера по ссылке из TMDB.
+    private let tmdbService = TMDBService.shared
+
     // Локальное состояние пока меняет только внешний вид сердца в ячейке.
     private var isLiked = false
 
-    // Идентификатор помогает ячейке менять состояние нужного фильма.
-    private var itemID: Int?
+    // Текущий фильм нужен ячейке для синхронизации лайка с локальной базой.
+    private var film: FilmObject?
 
     // Событие наружу нужно, чтобы экран мог обновить свои массивы и фильтры.
     var onLikeStateChanged: ((Int, Bool) -> Void)?
@@ -58,20 +61,27 @@ final class FilmCollectionViewCell: UICollectionViewCell {
         titleLable.text = nil
         yearLabel.text = nil
         isLiked = false
-        itemID = nil
+        film = nil
         onLikeStateChanged = nil
         updateLikeButtonAppearance()
     }
 
     // Метод переносит модель фильма в элементы карточки.
     func configure(with model: FilmObject) {
-        itemID = model.id
-        imageView.image = model.posterImage
+        film = model
+        imageView.image = nil
         titleLable.text = model.title
         ratingView.configure(rating: model.rating, fontSize: 13)
         yearLabel.text = String(model.year)
         isLiked = model.isLiked
+        accessibilityIdentifier = "main.filmCell"
         updateLikeButtonAppearance()
+
+        if let posterURL = tmdbService.makePosterURL(path: model.posterImageName) {
+            tmdbService.getSetPoster(url: posterURL) { [weak self] image in
+                self?.imageView.image = image
+            }
+        }
     }
 }
 
@@ -121,12 +131,12 @@ private extension FilmCollectionViewCell {
 
     // Тап пока только переключает иконку внутри ячейки.
     @objc func handleLikeTap() {
-        guard let itemID else {
+        guard let film else {
             return
         }
 
-        isLiked = model.toggleLikedState(forID: itemID)
+        isLiked = model.toggleLikedState(for: film)
         updateLikeButtonAppearance()
-        onLikeStateChanged?(itemID, isLiked)
+        onLikeStateChanged?(film.id, isLiked)
     }
 }
