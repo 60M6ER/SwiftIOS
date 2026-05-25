@@ -11,6 +11,9 @@ final class DetailFilmViewController: UIViewController {
     // Модель нужна для изменения liked-состояния.
     private let model = Model()
 
+    // Сервис нужен для загрузки постера по ссылке из TMDB.
+    private let tmdbService = TMDBService.shared
+
     // Фильм приходит с предыдущего экрана готовым объектом.
     var film: FilmObject?
 
@@ -68,6 +71,7 @@ final class DetailFilmViewController: UIViewController {
         configureLayout()
         DispatchQueue.main.async {
             self.applyFilm()
+            self.loadGalleryImages()
         }
     }
 }
@@ -91,6 +95,8 @@ private extension DetailFilmViewController {
         stillsStackView.spacing = 12
         stillsStackView.alignment = .fill
         stillsStackView.distribution = .fill
+        
+        view.accessibilityIdentifier = "detail.screen"
 
         view.addSubview(scrollView)
         scrollView.addSubview(contentView)
@@ -243,21 +249,61 @@ private extension DetailFilmViewController {
         yearLabel.text = String(film.year)
         ratingView.configure(rating: film.rating, fontSize: 20)
         overviewLabel.text = film.overview
-        posterImageView.image = film.posterImage
-        applyGalleryImages(film.galleryImages)
+        posterImageView.image = nil
+
+        if let posterURL = tmdbService.makePosterURL(path: film.posterImageName) {
+            tmdbService.getSetPoster(url: posterURL) { [weak self] image in
+                self?.posterImageView.image = image
+            }
+        }
+
+        let imagePaths = Array(film.galleryImageNames)
+        stillsTitleLabel.isHidden = imagePaths.isEmpty
+        stillsScrollView.isHidden = imagePaths.isEmpty
+        applyGalleryImages(imagePaths)
     }
 
-    // Метод собирает тестовые превью-картинки в горизонтальную ленту.
-    func applyGalleryImages(_ images: [UIImage]) {
+    // Кадры фильма загружаются из TMDB прямо для detail, не засоряя Realm.
+    func loadGalleryImages() {
+        guard let film else {
+            return
+        }
+
+        tmdbService.fetchMovieImagePaths(id: film.id) { [weak self] result in
+            guard let self else {
+                return
+            }
+
+            switch result {
+            case let .success(imagePaths):
+                guard !imagePaths.isEmpty else {
+                    return
+                }
+
+                DispatchQueue.main.async {
+                    film.galleryImageNames.removeAll()
+                    film.galleryImageNames.append(objectsIn: imagePaths)
+                    self.stillsTitleLabel.isHidden = false
+                    self.stillsScrollView.isHidden = false
+                    self.applyGalleryImages(imagePaths)
+                }
+            case let .failure(error):
+                print("TMDB images loading error: \(error.localizedDescription)")
+            }
+        }
+    }
+
+    // Метод собирает превью-картинки по путям из TMDB.
+    func applyGalleryImages(_ imagePaths: [String]) {
         stillsStackView.arrangedSubviews.forEach { view in
             stillsStackView.removeArrangedSubview(view)
             view.removeFromSuperview()
         }
 
-        images.forEach { image in
+        imagePaths.forEach { imagePath in
             let previewImageView = UIImageView()
             previewImageView.translatesAutoresizingMaskIntoConstraints = false
-            previewImageView.image = image
+            previewImageView.image = nil
             previewImageView.contentMode = .scaleAspectFill
             previewImageView.clipsToBounds = true
             previewImageView.layer.cornerRadius = 16
@@ -266,6 +312,12 @@ private extension DetailFilmViewController {
             previewImageView.addGestureRecognizer(UITapGestureRecognizer(target: self, action: #selector(openGalleryImage(_:))))
             previewImageView.tag = stillsStackView.arrangedSubviews.count
             stillsStackView.addArrangedSubview(previewImageView)
+
+            if let imageURL = tmdbService.makePosterURL(path: imagePath, size: "w500") {
+                tmdbService.getSetPoster(url: imageURL) { image in
+                    previewImageView.image = image
+                }
+            }
         }
     }
 
@@ -278,6 +330,7 @@ private extension DetailFilmViewController {
         let controller = FullPicViewController()
         controller.film = film
         controller.showsGallery = false
+        controller.initialImage = posterImageView.image
         presentFullScreen(controller, from: posterImageView)
     }
 
@@ -294,6 +347,7 @@ private extension DetailFilmViewController {
         controller.film = film
         controller.showsGallery = true
         controller.initialIndex = tappedImageView.tag
+        controller.initialImage = tappedImageView.image
         presentFullScreen(controller, from: tappedImageView)
     }
 
@@ -303,13 +357,17 @@ private extension DetailFilmViewController {
             return
         }
 
-        let isLiked = model.toggleLikedState(forID: film.id)
-        self.film = model.item(withID: film.id)
+        let isLiked = model.toggleLikedState(for: film)
         updateLikeButtonAppearance(isLiked: isLiked)
     }
 
     // Полноразмерный экран открывается модально с кастомной анимацией от tapped view.
     func presentFullScreen(_ controller: FullPicViewController, from sourceView: UIView) {
+        if controller.initialImage == nil,
+           let sourceImageView = sourceView as? UIImageView {
+            controller.initialImage = sourceImageView.image
+        }
+
         transitionSourceView = sourceView
         let navigationController = UINavigationController(rootViewController: controller)
         navigationController.modalPresentationStyle = .custom

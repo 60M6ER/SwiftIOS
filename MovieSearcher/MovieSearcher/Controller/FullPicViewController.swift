@@ -11,6 +11,12 @@ final class FullPicViewController: UIViewController {
     // Фильм приходит с detail-экрана готовым объектом.
     var film: FilmObject?
 
+    // Сервис нужен для загрузки полноразмерного постера.
+    private let tmdbService = TMDBService.shared
+
+    // Стартовая картинка помогает открыть fullscreen без мигания заглушки.
+    var initialImage: UIImage?
+
     // Флаг выбирает сценарий одиночного постера или галереи.
     var showsGallery = false
 
@@ -41,22 +47,27 @@ final class FullPicViewController: UIViewController {
     // Стартовая страница ставится только один раз.
     private var hasAppliedInitialIndex = false
 
-    // Общий массив нужен, чтобы одинаково работать и с одной картинкой, и с коллекцией.
-    private var displayImages: [UIImage] {
-        guard let film else {
+    // Массив путей нужен для сценария с галереей кадров.
+    private var displayImagePaths: [String] {
+        guard let film, showsGallery else {
             return []
         }
 
+        return Array(film.galleryImageNames)
+    }
+
+    // Общий счетчик нужен, чтобы одинаково работать и с одной картинкой, и с коллекцией.
+    private var displayItemsCount: Int {
         if showsGallery {
-            return film.galleryImages
+            return displayImagePaths.count
         }
 
-        return film.posterImage.map { [$0] } ?? []
+        return film == nil ? 0 : 1
     }
 
     // Нижний счетчик нужен только в сценарии со списком картинок.
     private var shouldShowCounter: Bool {
-        showsGallery && displayImages.count > 1
+        showsGallery && displayImagePaths.count > 1
     }
 
     // При загрузке экран собирает интерфейс и готовит стартовое состояние.
@@ -176,7 +187,7 @@ private extension FullPicViewController {
             return
         }
 
-        guard shouldShowCounter, displayImages.indices.contains(initialIndex) else {
+        guard shouldShowCounter, (0..<displayItemsCount).contains(initialIndex) else {
             hasAppliedInitialIndex = true
             return
         }
@@ -235,7 +246,7 @@ private extension FullPicViewController {
             return
         }
 
-        counterLabel.text = "\(index + 1) из \(displayImages.count)"
+        counterLabel.text = "\(index + 1) из \(displayItemsCount)"
     }
 
     // Одинарный тап скрывает и возвращает панели в классическом fullscreen-сценарии.
@@ -252,7 +263,7 @@ private extension FullPicViewController {
 extension FullPicViewController: UICollectionViewDataSource {
     // Коллекция показывает либо один постер, либо всю переданную галерею.
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
-        displayImages.count
+        displayItemsCount
     }
 
     // Каждая страница получает свою картинку и обратные события от жестов.
@@ -264,7 +275,26 @@ extension FullPicViewController: UICollectionViewDataSource {
             return UICollectionViewCell()
         }
 
-        cell.configure(with: displayImages[indexPath.item])
+        if showsGallery,
+           displayImagePaths.indices.contains(indexPath.item),
+           let imageURL = tmdbService.makeOriginalPosterURL(path: displayImagePaths[indexPath.item]) {
+            let placeholderImage = indexPath.item == initialIndex
+                ? initialImage
+                : nil
+            cell.configure(with: placeholderImage)
+            tmdbService.getSetPoster(url: imageURL) { image in
+                cell.configure(with: image)
+            }
+        } else if !showsGallery,
+           let film,
+           let posterURL = tmdbService.makeOriginalPosterURL(path: film.posterImageName) {
+            cell.configure(with: initialImage)
+            tmdbService.getSetPoster(url: posterURL) { image in
+                cell.configure(with: image)
+            }
+        } else {
+            cell.configure(with: initialImage)
+        }
         cell.onSingleTap = { [weak self] in
             self?.toggleChromeViews()
         }
@@ -334,7 +364,7 @@ private final class ZoomableImageCollectionViewCell: UICollectionViewCell, UIScr
     }
 
     // Метод кладет новое изображение на fullscreen-страницу.
-    func configure(with image: UIImage) {
+    func configure(with image: UIImage?) {
         imageView.image = image
         onZoomStateChange?(false)
     }

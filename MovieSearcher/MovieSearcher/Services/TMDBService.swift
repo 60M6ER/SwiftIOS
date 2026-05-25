@@ -6,6 +6,7 @@
 //
 
 import Foundation
+import UIKit
 
 final class TMDBService {
     // Единая точка доступа помогает не плодить одинаковые сетевые экземпляры.
@@ -20,6 +21,15 @@ final class TMDBService {
     // Ключ читается из локального plist и не хранится прямо в коде сервиса.
     private let apiKey: String
 
+    // Парсер оставляет учебный стиль: сеть отдельно, разбор JSON отдельно.
+    private let parsingService = JSONParsingService()
+
+    // Локаль запроса управляет языком текстовых данных из TMDB.
+    private let language = "ru-RU"
+
+    // Кэш нужен, чтобы не грузить один и тот же постер при каждом скролле заново.
+    private let imageCache = NSCache<NSString, UIImage>()
+
     private init(session: URLSession = .shared) {
         self.session = session
         self.apiKey = Self.loadAPIKey()
@@ -30,11 +40,25 @@ final class TMDBService {
         request(
             path: "/movie/popular",
             queryItems: [
-                URLQueryItem(name: "language", value: "en-US"),
+                URLQueryItem(name: "language", value: language),
                 URLQueryItem(name: "page", value: String(page))
             ],
             completion: completion
         )
+    }
+
+    // Главный экрану удобнее получить уже готовую страницу фильмов.
+    func fetchPopularMovieList(page: Int = 1, completion: @escaping (Result<MoviePage, Error>) -> Void) {
+        fetchPopularMovies(page: page) { result in
+            completion(result.flatMap(self.parsingService.parseMovies))
+        }
+    }
+
+    // Detail-экрану удобнее получить уже готовые пути кадров фильма.
+    func fetchMovieImagePaths(id: Int, completion: @escaping (Result<[String], Error>) -> Void) {
+        fetchMovieImages(id: id) { result in
+            completion(result.flatMap(self.parsingService.parseImagePaths))
+        }
     }
 
     // Недавно вышедший фильм нужен для проверки endpoint latest.
@@ -42,7 +66,7 @@ final class TMDBService {
         request(
             path: "/movie/latest",
             queryItems: [
-                URLQueryItem(name: "language", value: "en-US")
+                URLQueryItem(name: "language", value: language)
             ],
             completion: completion
         )
@@ -53,7 +77,7 @@ final class TMDBService {
         request(
             path: "/movie/now_playing",
             queryItems: [
-                URLQueryItem(name: "language", value: "en-US"),
+                URLQueryItem(name: "language", value: language),
                 URLQueryItem(name: "page", value: String(page))
             ],
             completion: completion
@@ -65,7 +89,7 @@ final class TMDBService {
         request(
             path: "/movie/top_rated",
             queryItems: [
-                URLQueryItem(name: "language", value: "en-US"),
+                URLQueryItem(name: "language", value: language),
                 URLQueryItem(name: "page", value: String(page))
             ],
             completion: completion
@@ -77,7 +101,7 @@ final class TMDBService {
         request(
             path: "/movie/upcoming",
             queryItems: [
-                URLQueryItem(name: "language", value: "en-US"),
+                URLQueryItem(name: "language", value: language),
                 URLQueryItem(name: "page", value: String(page))
             ],
             completion: completion
@@ -91,22 +115,18 @@ final class TMDBService {
             queryItems: [
                 URLQueryItem(name: "query", value: query),
                 URLQueryItem(name: "include_adult", value: "false"),
-                URLQueryItem(name: "language", value: "en-US"),
+                URLQueryItem(name: "language", value: language),
                 URLQueryItem(name: "page", value: String(page))
             ],
             completion: completion
         )
     }
 
-    // Детальная информация нужна для полной карточки фильма.
-    func fetchMovieDetails(id: Int, completion: @escaping (Result<Data, Error>) -> Void) {
-        request(
-            path: "/movie/\(id)",
-            queryItems: [
-                URLQueryItem(name: "language", value: "en-US")
-            ],
-            completion: completion
-        )
+    // Главный экрану удобнее получить уже готовую страницу поисковой выдачи.
+    func fetchSearchMovieList(query: String, page: Int = 1, completion: @escaping (Result<MoviePage, Error>) -> Void) {
+        searchMovies(query: query, page: page) { result in
+            completion(result.flatMap(self.parsingService.parseMovies))
+        }
     }
 
     // Кадры и постеры нужны для галереи фильма.
@@ -118,7 +138,71 @@ final class TMDBService {
         )
     }
 
-    // Временная проверка нужна, чтобы быстро увидеть ответы всех endpoint в консоли.
+    // Детальная информация нужна для полной карточки фильма.
+    func fetchMovieDetails(id: Int, completion: @escaping (Result<Data, Error>) -> Void) {
+        request(
+            path: "/movie/\(id)",
+            queryItems: [
+                URLQueryItem(name: "language", value: language)
+            ],
+            completion: completion
+        )
+    }
+
+    // Метод собирает ссылку на постер нужного размера.
+    func makePosterURL(path: String, size: String = "w500") -> URL? {
+        guard !path.isEmpty else {
+            return nil
+        }
+
+        return URL(string: "https://image.tmdb.org/t/p/\(size)\(path)")
+    }
+
+    // Метод собирает ссылку на оригинальный постер для fullscreen.
+    func makeOriginalPosterURL(path: String) -> URL? {
+        makePosterURL(path: path, size: "original")
+    }
+
+    // Метод грузит постер и возвращает кэшированную картинку через completion.
+    func getSetPoster(url: URL, completion: @escaping (UIImage) -> Void) {
+        if let cachedImage = imageCache.object(forKey: url.absoluteString as NSString) {
+            completion(cachedImage)
+            return
+        }
+
+        let request = URLRequest(
+            url: url,
+            cachePolicy: .returnCacheDataElseLoad,
+            timeoutInterval: 10
+        )
+
+        let downloadingTask = session.dataTask(with: request) { [weak self] data, response, error in
+            guard
+                error == nil,
+                let unwrappedData = data,
+                let response = response as? HTTPURLResponse,
+                response.statusCode == 200,
+                let self
+            else {
+                return
+            }
+
+            guard let image = UIImage(data: unwrappedData) else {
+                return
+            }
+
+            self.imageCache.setObject(image, forKey: url.absoluteString as NSString)
+
+            DispatchQueue.main.async {
+                completion(image)
+            }
+        }
+
+        downloadingTask.resume()
+    }
+
+    /// Временная проверка нужна, чтобы быстро увидеть ответы всех endpoint в консоли.
+    /// Метод для теста без интерфейса. вызывался в ранних юнитах.
     func debugRunAllRequests() {
         fetchPopularMovies(page: 1) { result in
             self.printDebugResult(title: "POPULAR", result: result)
@@ -135,10 +219,7 @@ final class TMDBService {
         fetchMovieImages(id: 550) { result in
             self.printDebugResult(title: "IMAGES", result: result)
         }
-    }
-
-    // Временная проверка нужна именно под задание с четырьмя категориями фильмов.
-    func debugRunHomeworkRequests() {
+        
         fetchLatestMovie { result in
             self.printDebugResult(title: "LATEST", result: result)
         }
@@ -155,6 +236,7 @@ final class TMDBService {
             self.printDebugResult(title: "UPCOMING", result: result)
         }
     }
+
 }
 
 private extension TMDBService {

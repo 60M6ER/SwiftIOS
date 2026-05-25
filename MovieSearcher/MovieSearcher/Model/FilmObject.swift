@@ -5,7 +5,6 @@
 //  Created by OpenAI on 22.05.2026.
 //
 
-import UIKit
 import RealmSwift
 
 class FilmObject: Object {
@@ -15,13 +14,19 @@ class FilmObject: Object {
     // Название фильма хранится как обязательное поле.
     @Persisted var title: String = ""
 
+    // Оригинальное название можно хранить отдельно от локализованного.
+    @Persisted var originalTitle: String = ""
+
+    // Нормализованная строка нужна для локального поиска по избранному.
+    @Persisted var searchTitle: String = ""
+
     // Год выпуска теперь тоже считаем обязательным.
     @Persisted var year: Int = 0
 
     // Рейтинг нужен и для главного экрана, и для деталей.
     @Persisted var rating: Double = 0
 
-    // Имя постера пока ссылается на локальный ассет.
+    // Строка постера хранит путь TMDB для карточки и fullscreen.
     @Persisted var posterImageName: String = ""
 
     // Описание уходит на детальный экран.
@@ -33,10 +38,11 @@ class FilmObject: Object {
     // Флаг лайка нужен для отбора избранного.
     @Persisted var isLiked: Bool = false
 
-    // Удобный инициализатор нужен для тестового наполнения локальной базы.
+    // Удобный инициализатор нужен для явного создания объекта фильма из ответа TMDB и Realm-кэша.
     convenience init(
         id: Int,
         title: String,
+        originalTitle: String = "",
         year: Int,
         rating: Double,
         posterImageName: String,
@@ -47,6 +53,8 @@ class FilmObject: Object {
         self.init()
         self.id = id
         self.title = title
+        self.originalTitle = originalTitle
+        self.searchTitle = Self.makeSearchTitle(title: title, originalTitle: originalTitle)
         self.year = year
         self.rating = rating
         self.posterImageName = posterImageName
@@ -60,13 +68,11 @@ class FilmObject: Object {
         "id"
     }
 
-    // Готовый постер пока достается из локальных ассетов.
-    var posterImage: UIImage? {
-        UIImage(named: posterImageName)
-    }
-
-    // Готовая коллекция кадров пока собирается из локальных ассетов.
-    var galleryImages: [UIImage] {
-        galleryImageNames.compactMap(UIImage.init(named:))
+    // Поисковая строка объединяет локальный и оригинальный заголовки в нижнем регистре.
+    private static func makeSearchTitle(title: String, originalTitle: String) -> String {
+        [title, originalTitle]
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+            .lowercased()
     }
 }
