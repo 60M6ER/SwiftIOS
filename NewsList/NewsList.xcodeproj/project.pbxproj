@@ -17,9 +17,22 @@
 		94BC98D12FBB238200E8992B /* NewsList.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NewsList.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		94A677502FC590D600041428 /* Exceptions for "NewsList" folder in "NewsList" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 94BC98D02FBB238200E8992B /* NewsList */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		94BC98D32FBB238200E8992B /* NewsList */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				94A677502FC590D600041428 /* Exceptions for "NewsList" folder in "NewsList" target */,
+			);
 			path = NewsList;
 			sourceTree = "<group>";
 		};

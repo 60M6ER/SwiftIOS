@@ -8,22 +8,31 @@
 
 /* Begin PBXBuildFile section */
 		4EFA292481FD19633139405D /* Pods_PicSearcher.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6D89393ACD6AFC9566172D55 /* Pods_PicSearcher.framework */; };
-		94BC99D72FBBC9BB00E8992B /* Task.txt in Resources */ = {isa = PBXBuildFile; fileRef = 94BC99D62FBBC9B200E8992B /* Task.txt */; };
-		94BC99D92FBBD34000E8992B /* APIDoc.txt in Resources */ = {isa = PBXBuildFile; fileRef = 94BC99D82FBBD33800E8992B /* APIDoc.txt */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		68BA13A60D148AD8FC07A0A0 /* Pods-PicSearcher.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-PicSearcher.release.xcconfig"; path = "Target Support Files/Pods-PicSearcher/Pods-PicSearcher.release.xcconfig"; sourceTree = "<group>"; };
 		6D89393ACD6AFC9566172D55 /* Pods_PicSearcher.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_PicSearcher.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		94BC99BE2FBBC9A100E8992B /* PicSearcher.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = PicSearcher.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		94BC99D62FBBC9B200E8992B /* Task.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = Task.txt; sourceTree = "<group>"; };
-		94BC99D82FBBD33800E8992B /* APIDoc.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = APIDoc.txt; sourceTree = "<group>"; };
 		C2D65E10FBE64C834926D900 /* Pods-PicSearcher.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-PicSearcher.debug.xcconfig"; path = "Target Support Files/Pods-PicSearcher/Pods-PicSearcher.debug.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		94A677732FC5943B00041428 /* Exceptions for "PicSearcher" folder in "PicSearcher" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 94BC99BD2FBBC9A100E8992B /* PicSearcher */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		94BC99C02FBBC9A100E8992B /* PicSearcher */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				94A677732FC5943B00041428 /* Exceptions for "PicSearcher" folder in "PicSearcher" target */,
+			);
 			path = PicSearcher;
 			sourceTree = "<group>";
 		};
@@ -53,8 +62,6 @@
 		94BC99B52FBBC9A100E8992B = {
 			isa = PBXGroup;
 			children = (
-				94BC99D82FBBD33800E8992B /* APIDoc.txt */,
-				94BC99D62FBBC9B200E8992B /* Task.txt */,
 				94BC99C02FBBC9A100E8992B /* PicSearcher */,
 				94BC99BF2FBBC9A100E8992B /* Products */,
 				2AEDB1EE7D43EE0C64567E73 /* Pods */,
@@ -142,8 +149,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				94BC99D72FBBC9BB00E8992B /* Task.txt in Resources */,
-				94BC99D92FBBD34000E8992B /* APIDoc.txt in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
